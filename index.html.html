@@ -1,0 +1,388 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>PvE Quest Items</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* Layout: sticky filter bar over a single scrolling list; two views (by item / by quest). Dark-first, like a stash screen. */
+:root{
+  --bg:#141613; --panel:#1c1f1b; --panel2:#242822; --line:#343a32;
+  --fg:#d9dcd2; --muted:#8d9487; --accent:#c8a64b; --accent-ink:#1a1606;
+  --fir:#7fb069; --done:#5b6157; --danger:#d0694f;
+  --display:"Chakra Petch",ui-sans-serif,system-ui,sans-serif;
+  --body:"IBM Plex Sans",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  color-scheme:dark;
+}
+@media (prefers-color-scheme: light){ :root:not([data-theme="dark"]){
+  --bg:#eef0ea; --panel:#ffffff; --panel2:#f4f5f0; --line:#d5d9cf;
+  --fg:#1d211b; --muted:#5f665a; --accent:#8a6d14; --accent-ink:#ffffff;
+  --fir:#3f7a2a; --done:#a3a89c; --danger:#b04a31; color-scheme:light } }
+:root[data-theme="light"]{
+  --bg:#eef0ea; --panel:#ffffff; --panel2:#f4f5f0; --line:#d5d9cf;
+  --fg:#1d211b; --muted:#5f665a; --accent:#8a6d14; --accent-ink:#ffffff;
+  --fir:#3f7a2a; --done:#a3a89c; --danger:#b04a31; color-scheme:light }
+
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--fg);font:15px/1.45 var(--body);
+  padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+.wrap{max-width:960px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+header.top{padding-block:20px 8px}
+.brand{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap}
+h1{font:700 26px/1.1 var(--display);letter-spacing:.02em;margin:0;text-transform:uppercase}
+h1 span{color:var(--accent)}
+.meta{color:var(--muted);font-size:13px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.linkbtn{background:none;border:0;color:var(--accent);cursor:pointer;padding:0;font-size:13px;text-decoration:underline;text-underline-offset:2px}
+
+.bar{position:sticky;top:0;z-index:5;background:var(--bg);border-bottom:1px solid var(--line);padding-block:10px;display:grid;gap:8px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.search{flex:1 1 220px;min-width:0;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:9px 12px}
+select{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:8px 10px;max-width:100%}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.seg button{background:var(--panel);border:0;padding:8px 14px;cursor:pointer;font:600 13px var(--display);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+.chips{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;scrollbar-width:thin}
+.chip{flex:0 0 auto;background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:5px 12px;font-size:13px;cursor:pointer;color:var(--muted)}
+.chip[aria-pressed="true"]{border-color:var(--accent);color:var(--fg);background:var(--panel2)}
+.toggle{display:inline-flex;gap:6px;align-items:center;font-size:13px;color:var(--muted);cursor:pointer;user-select:none}
+.toggle input{accent-color:var(--accent);width:16px;height:16px}
+
+.summary{display:flex;gap:16px;flex-wrap:wrap;color:var(--muted);font-size:13px;padding-block:12px 4px}
+.summary b{color:var(--fg);font:500 14px var(--mono)}
+
+main{padding-block:8px 48px;display:grid;gap:8px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:8px}
+.card.complete{opacity:.55}
+.card > summary{list-style:none;cursor:pointer;display:flex;gap:12px;align-items:center;padding:10px 12px}
+.card > summary::-webkit-details-marker{display:none}
+.icon{width:44px;height:44px;flex:0 0 44px;border-radius:4px;background:var(--panel2);border:1px solid var(--line);object-fit:contain}
+.title{min-width:0;flex:1}
+.title .name{font-weight:600;overflow-wrap:anywhere}
+.title .sub{color:var(--muted);font-size:13px;display:flex;gap:8px;flex-wrap:wrap;margin-top:2px}
+.count{font:500 15px var(--mono);font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+.count small{display:block;color:var(--muted);font-size:11px;font-family:var(--body)}
+.badge{display:inline-block;font:600 11px var(--display);letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--line);border-radius:3px;padding:1px 5px;color:var(--muted)}
+.badge.fir{color:var(--fir);border-color:var(--fir)}
+.badge.kappa{color:var(--accent);border-color:var(--accent)}
+.badge.kind{color:var(--fg)}
+
+.reqs{border-top:1px solid var(--line);display:grid}
+.req{display:flex;gap:10px;align-items:flex-start;padding:9px 12px;border-top:1px solid var(--line)}
+.req:first-child{border-top:0}
+.req input{accent-color:var(--accent);width:20px;height:20px;margin-top:2px;flex:0 0 20px;cursor:pointer}
+.req label{flex:1;min-width:0;cursor:pointer}
+.req .line1{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.req .line2{color:var(--muted);font-size:13px;margin-top:2px;overflow-wrap:anywhere}
+.req.done .line1 .what{text-decoration:line-through;color:var(--done)}
+.req .qty{font:500 14px var(--mono);font-variant-numeric:tabular-nums}
+.req a{color:var(--muted)}
+.cardfoot{display:flex;justify-content:flex-end;padding:8px 12px;border-top:1px solid var(--line)}
+.btn{background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:6px 12px;cursor:pointer;font-size:13px}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:600}
+.btn.danger{color:var(--danger);border-color:var(--danger)}
+
+.state{padding:40px 16px;text-align:center;color:var(--muted)}
+.state h2{font:600 18px var(--display);color:var(--fg);margin:0 0 6px;text-transform:uppercase;letter-spacing:.04em}
+.confirm{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13px}
+.more{display:flex;justify-content:center;padding:12px}
+@media (prefers-reduced-motion: reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <h1>PvE <span>Quest</span> Items</h1>
+      <div class="meta">
+        <span id="status">Loading quest data…</span>
+        <button class="linkbtn" id="refresh" type="button">Refresh data</button>
+        <span id="resetWrap"><button class="linkbtn" id="reset" type="button">Reset ticks</button></span>
+      </div>
+    </div>
+  </header>
+
+  <div class="bar" id="bar">
+    <div class="row">
+      <div class="seg" role="group" aria-label="View">
+        <button type="button" id="viewItems" aria-pressed="true">By item</button>
+        <button type="button" id="viewQuests" aria-pressed="false">By quest</button>
+      </div>
+      <input class="search" id="q" type="search" placeholder="Search items or quests (e.g. salewa, gas analyzer)" autocomplete="off">
+    </div>
+    <div class="chips" id="traders" role="group" aria-label="Trader"></div>
+    <div class="row">
+      <select id="map" aria-label="Map"><option value="">All maps</option></select>
+      <select id="sort" aria-label="Sort">
+        <option value="need">Most still needed</option>
+        <option value="az">A to Z</option>
+        <option value="level">Quest level</option>
+      </select>
+      <label class="toggle"><input type="checkbox" id="firOnly"> Found in raid only</label>
+      <label class="toggle"><input type="checkbox" id="kappaOnly"> Kappa quests only</label>
+      <label class="toggle"><input type="checkbox" id="hideDone" checked> Hide finished</label>
+    </div>
+  </div>
+
+  <div class="summary" id="summary"></div>
+  <main id="list" aria-live="polite"></main>
+</div>
+
+<script>
+(() => {
+const API = "https://api.tarkov.dev/graphql";
+const CACHE_KEY = "pveqi:data:v1", DONE_KEY = "pveqi:done:v1", UI_KEY = "pveqi:ui:v1";
+const QUERY = `query { tasks(gameMode: pve, lang: en) {
+  id name minPlayerLevel kappaRequired wikiLink
+  trader { name } map { name }
+  objectives { id type optional maps { name }
+    ... on TaskObjectiveItem { count foundInRaid items { id name shortName iconLink } }
+    ... on TaskObjectiveQuestItem { count questItem { id name shortName iconLink } }
+    ... on TaskObjectiveMark { markerItem { id name shortName iconLink } }
+  } } }`;
+
+const store = {
+  get(k, d){ try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } },
+  set(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }
+};
+
+let reqs = [];            // flattened requirements
+let done = new Set(store.get(DONE_KEY, []));
+const ui = Object.assign({ view:"items", q:"", trader:"", map:"", sort:"need", firOnly:false, kappaOnly:false, hideDone:true }, store.get(UI_KEY, {}));
+let limit = 60;
+const $ = id => document.getElementById(id);
+
+const KIND = { giveItem:"Hand over", findItem:"Find", plantItem:"Plant", mark:"Mark", giveQuestItem:"Quest item", findQuestItem:"Quest item" };
+
+function flatten(tasks){
+  const out = [];
+  for (const t of tasks) {
+    if (!t) continue;
+    const objs = t.objectives || [];
+    const giveIds = new Set(objs.filter(o => o.type === "giveItem").flatMap(o => (o.items||[]).map(i => i.id)));
+    const giveQ = new Set(objs.filter(o => o.type === "giveQuestItem" && o.questItem).map(o => o.questItem.id));
+    for (const o of objs) {
+      let items = null, count = o.count || 1, fir = false;
+      if (o.type === "giveItem" || o.type === "plantItem") { items = o.items; fir = !!o.foundInRaid; }
+      else if (o.type === "findItem") {
+        if ((o.items||[]).some(i => giveIds.has(i.id))) continue;   // the hand-over line covers it
+        items = o.items; fir = !!o.foundInRaid;
+      }
+      else if (o.type === "mark" && o.markerItem) { items = [o.markerItem]; count = 1; }
+      else if (o.type === "giveQuestItem" && o.questItem) { items = [o.questItem]; }
+      else if (o.type === "findQuestItem" && o.questItem) { if (giveQ.has(o.questItem.id)) continue; items = [o.questItem]; }
+      if (!items || !items.length) continue;
+      const maps = (o.maps||[]).map(m => m.name).filter(Boolean);
+      if (!maps.length && t.map) maps.push(t.map.name);
+      const sorted = [...items].sort((a,b) => a.name.localeCompare(b.name));
+      out.push({
+        id: o.id || (t.id + ":" + out.length),
+        taskId: t.id, task: t.name, trader: t.trader?.name || "Unknown",
+        level: t.minPlayerLevel || 0, kappa: !!t.kappaRequired, wiki: t.wikiLink,
+        kind: KIND[o.type] || o.type, quest: o.type.includes("QuestItem"),
+        items: sorted, key: sorted.map(i => i.id).join("|"),
+        count, fir, optional: !!o.optional, maps
+      });
+    }
+  }
+  return out;
+}
+
+function matches(r){
+  if (ui.trader && r.trader !== ui.trader) return false;
+  if (ui.map && !(r.maps.includes(ui.map) || (!r.maps.length && ui.map === "Any map"))) return false;
+  if (ui.firOnly && !r.fir) return false;
+  if (ui.kappaOnly && !r.kappa) return false;
+  if (ui.q) {
+    const q = ui.q.toLowerCase();
+    if (!r.task.toLowerCase().includes(q) && !r.items.some(i => i.name.toLowerCase().includes(q) || (i.shortName||"").toLowerCase().includes(q))) return false;
+  }
+  return true;
+}
+
+function el(tag, attrs = {}, ...kids){
+  const e = document.createElement(tag);
+  for (const [k,v] of Object.entries(attrs)) {
+    if (v == null || v === false) continue;
+    if (k === "class") e.className = v; else if (k === "text") e.textContent = v;
+    else if (k.startsWith("on")) e.addEventListener(k.slice(2), v); else e.setAttribute(k, v === true ? "" : v);
+  }
+  for (const c of kids.flat()) if (c != null && c !== false) e.append(c.nodeType ? c : document.createTextNode(c));
+  return e;
+}
+const icon = it => it?.iconLink ? el("img", { class:"icon", src: it.iconLink, alt:"", loading:"lazy", width:44, height:44 }) : el("div", { class:"icon", "aria-hidden":"true" });
+const itemName = items => items.length === 1 ? items[0].name : `${items[0].name} (or ${items.length - 1} other${items.length > 2 ? "s" : ""})`;
+
+function badges(r){
+  return [
+    el("span", { class:"badge kind", text: r.kind }),
+    r.fir && el("span", { class:"badge fir", text:"FiR" }),
+    r.kappa && el("span", { class:"badge kappa", text:"Kappa" }),
+    r.optional && el("span", { class:"badge", text:"Optional" })
+  ];
+}
+
+function reqRow(r, mode){
+  const isDone = done.has(r.id), cid = "c-" + mode + "-" + r.id;
+  const what = mode === "items"
+    ? el("span", { class:"what" }, r.task)
+    : el("span", { class:"what" }, itemName(r.items));
+  const alts = r.items.length > 1 && mode === "quests" ? "Any of: " + r.items.map(i => i.shortName || i.name).join(", ") + ". " : "";
+  return el("div", { class: "req" + (isDone ? " done" : "") },
+    el("input", { type:"checkbox", id: cid, checked: isDone, onchange: e => toggle([r.id], e.target.checked) }),
+    el("label", { for: cid },
+      el("div", { class:"line1" }, el("span", { class:"qty", text: "×" + r.count }), what, badges(r)),
+      el("div", { class:"line2" }, alts + `${r.trader} · Level ${r.level || 1} · ${r.maps.length ? r.maps.join(", ") : "Any map"}`)
+    )
+  );
+}
+
+function render(){
+  store.set(UI_KEY, ui);
+  const list = $("list"); list.replaceChildren();
+  const vis = reqs.filter(matches);
+  const open = vis.filter(r => !done.has(r.id));
+  const firLeft = open.filter(r => r.fir).reduce((s,r) => s + r.count, 0);
+  $("summary").replaceChildren(
+    el("span", {}, el("b", { text: String(open.length) }), " requirements left"),
+    el("span", {}, el("b", { text: String(firLeft) }), " found-in-raid items still to find"),
+    el("span", {}, el("b", { text: String(vis.length - open.length) }), " ticked off")
+  );
+
+  let groups;
+  if (ui.view === "items") {
+    const m = new Map();
+    for (const r of vis) { const g = m.get(r.key) || { key:r.key, items:r.items, reqs:[] }; g.reqs.push(r); m.set(r.key, g); }
+    groups = [...m.values()].map(g => {
+      const left = g.reqs.filter(r => !done.has(r.id));
+      return Object.assign(g, { name: itemName(g.items), left: left.reduce((s,r)=>s+r.count,0), total: g.reqs.reduce((s,r)=>s+r.count,0),
+        firLeft: left.filter(r=>r.fir).reduce((s,r)=>s+r.count,0), minLevel: Math.min(...g.reqs.map(r=>r.level)) });
+    });
+  } else {
+    const m = new Map();
+    for (const r of vis) { const g = m.get(r.taskId) || { key:r.taskId, name:r.task, trader:r.trader, level:r.level, kappa:r.kappa, wiki:r.wiki, reqs:[] }; g.reqs.push(r); m.set(r.taskId, g); }
+    groups = [...m.values()].map(g => { const left = g.reqs.filter(r => !done.has(r.id)); return Object.assign(g, { left: left.reduce((s,r)=>s+r.count,0), total: g.reqs.reduce((s,r)=>s+r.count,0), minLevel: g.level }); });
+  }
+  if (ui.hideDone) groups = groups.filter(g => g.left > 0);
+  const by = { need:(a,b)=>b.left-a.left || a.name.localeCompare(b.name), az:(a,b)=>a.name.localeCompare(b.name), level:(a,b)=>a.minLevel-b.minLevel || a.name.localeCompare(b.name) }[ui.sort];
+  groups.sort(by);
+
+  if (!groups.length) {
+    list.append(el("div", { class:"state" }, el("h2", { text: reqs.length ? "Nothing matches" : "No data yet" }),
+      reqs.length ? "Try clearing the search or a filter." : "Quest data hasn't loaded. Check your connection and tap Refresh data."));
+    return;
+  }
+
+  for (const g of groups.slice(0, limit)) {
+    const complete = g.left === 0;
+    const openReqs = ui.hideDone ? g.reqs : g.reqs;
+    let head;
+    if (ui.view === "items") {
+      head = el("summary", {}, icon(g.items[0]),
+        el("div", { class:"title" }, el("div", { class:"name", text: g.name }),
+          el("div", { class:"sub" }, `${g.reqs.length} quest${g.reqs.length>1?"s":""}`, g.firLeft ? el("span", { class:"badge fir", text: g.firLeft + " FiR" }) : null)),
+        el("div", { class:"count" }, `${g.left}`, el("small", { text: complete ? "done" : `of ${g.total} needed` })));
+    } else {
+      head = el("summary", {},
+        el("div", { class:"title" }, el("div", { class:"name", text: g.name }),
+          el("div", { class:"sub" }, `${g.trader} · Level ${g.level || 1}`, g.kappa ? el("span", { class:"badge kappa", text:"Kappa" }) : null)),
+        el("div", { class:"count" }, `${g.left}`, el("small", { text: complete ? "done" : "items left" })));
+    }
+    const body = el("div", { class:"reqs" }, openReqs.map(r => reqRow(r, ui.view)));
+    const ids = g.reqs.map(r => r.id);
+    const foot = el("div", { class:"cardfoot" },
+      ui.view === "quests" && g.wiki ? el("a", { href: g.wiki, target:"_blank", rel:"noopener", class:"btn", style:"margin-right:auto;text-decoration:none", text:"Wiki" }) : null,
+      el("button", { type:"button", class: complete ? "btn" : "btn primary", onclick: () => toggle(ids, !complete), text: complete ? "Untick all" : (ui.view === "items" ? "Tick all for this item" : "Mark quest items done") }));
+    const card = el("details", { class: "card" + (complete ? " complete" : ""), "data-key": g.key }, head, body, foot);
+    if (openKeys.has(g.key)) card.open = true;
+    card.addEventListener("toggle", () => card.open ? openKeys.add(g.key) : openKeys.delete(g.key));
+    list.append(card);
+  }
+  if (groups.length > limit) list.append(el("div", { class:"more" }, el("button", { type:"button", class:"btn", onclick: () => { limit += 60; render(); }, text: `Show more (${groups.length - limit} left)` })));
+}
+const openKeys = new Set();
+
+function toggle(ids, val){
+  for (const id of ids) val ? done.add(id) : done.delete(id);
+  store.set(DONE_KEY, [...done]);
+  render();
+}
+
+function buildFilters(){
+  const traders = [...new Set(reqs.map(r => r.trader))].sort();
+  const t = $("traders"); t.replaceChildren();
+  for (const name of ["", ...traders]) {
+    t.append(el("button", { type:"button", class:"chip", "aria-pressed": String(ui.trader === name), text: name || "All traders",
+      onclick: () => { ui.trader = name; limit = 60; buildFilters(); render(); } }));
+  }
+  const maps = [...new Set(reqs.flatMap(r => r.maps.length ? r.maps : ["Any map"]))].sort();
+  const sel = $("map"); const cur = ui.map;
+  sel.replaceChildren(el("option", { value:"", text:"All maps" }), ...maps.map(m => el("option", { value:m, text:m })));
+  sel.value = maps.includes(cur) ? cur : ""; ui.map = sel.value;
+}
+
+function syncControls(){
+  $("q").value = ui.q; $("sort").value = ui.sort;
+  $("firOnly").checked = ui.firOnly; $("kappaOnly").checked = ui.kappaOnly; $("hideDone").checked = ui.hideDone;
+  $("viewItems").setAttribute("aria-pressed", String(ui.view === "items"));
+  $("viewQuests").setAttribute("aria-pressed", String(ui.view === "quests"));
+}
+
+async function load(force){
+  const cached = store.get(CACHE_KEY, null);
+  if (cached && !force) use(cached.tasks, cached.at, true);
+  if (cached && !force && Date.now() - cached.at < 6 * 3600e3) return;
+  $("status").textContent = cached ? "Checking for updates…" : "Loading quest data…";
+  try {
+    const res = await fetch(API, { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify({ query: QUERY }) });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const json = await res.json();
+    const tasks = json?.data?.tasks;
+    if (!Array.isArray(tasks) || !tasks.length) throw new Error(json?.errors?.[0]?.message || "empty response");
+    const at = Date.now();
+    store.set(CACHE_KEY, { at, tasks });
+    use(tasks, at, false);
+  } catch (err) {
+    $("status").textContent = cached
+      ? `Couldn't refresh (${err.message}). Showing data from ${new Date(cached.at).toLocaleDateString()}.`
+      : `Couldn't load quest data from tarkov.dev (${err.message}). Check your connection and tap Refresh data.`;
+    if (!cached) render();
+  }
+}
+function use(tasks, at, fromCache){
+  reqs = flatten(tasks);
+  const quests = new Set(reqs.map(r => r.taskId)).size;
+  $("status").textContent = `${quests} quests · PvE data from tarkov.dev · ${fromCache ? "saved" : "updated"} ${new Date(at).toLocaleString([], { dateStyle:"medium", timeStyle:"short" })}`;
+  buildFilters(); render();
+}
+
+// controls
+let qTimer;
+$("q").addEventListener("input", e => { clearTimeout(qTimer); qTimer = setTimeout(() => { ui.q = e.target.value.trim(); limit = 60; render(); }, 150); });
+$("map").addEventListener("change", e => { ui.map = e.target.value; limit = 60; render(); });
+$("sort").addEventListener("change", e => { ui.sort = e.target.value; render(); });
+for (const k of ["firOnly","kappaOnly","hideDone"]) $(k).addEventListener("change", e => { ui[k] = e.target.checked; limit = 60; render(); });
+$("viewItems").addEventListener("click", () => { ui.view = "items"; limit = 60; syncControls(); render(); });
+$("viewQuests").addEventListener("click", () => { ui.view = "quests"; limit = 60; syncControls(); render(); });
+$("refresh").addEventListener("click", () => load(true));
+function askReset(){
+  const wrap = $("resetWrap");
+  const restore = () => wrap.replaceChildren(el("button", { class:"linkbtn", id:"reset", type:"button", text:"Reset ticks", onclick: askReset }));
+  wrap.replaceChildren(el("span", { class:"confirm" }, "Untick everything?",
+    el("button", { type:"button", class:"btn danger", text:"Yes, reset", onclick: () => { done.clear(); store.set(DONE_KEY, []); restore(); render(); } }),
+    el("button", { type:"button", class:"btn", text:"Cancel", onclick: restore })));
+}
+$("reset").addEventListener("click", askReset);
+
+syncControls();
+load(false);
+})();
+</script>
+</body>
+</html>
