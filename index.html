@@ -92,6 +92,10 @@ main{padding-block:8px 48px;display:grid;gap:8px}
 .state h2{font:600 18px var(--display);color:var(--fg);margin:0 0 6px;text-transform:uppercase;letter-spacing:.04em}
 .confirm{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13px}
 .more{display:flex;justify-content:center;padding:12px}
+.sync{margin-top:12px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px;display:grid;gap:10px;max-width:640px}
+.sync p{margin:0;color:var(--muted);font-size:13px}
+.sync textarea{width:100%;min-width:0;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:8px;font:500 12px var(--mono);resize:vertical;word-break:break-all}
+.hint{color:var(--muted);font-size:13px}
 @media (prefers-reduced-motion: reduce){*{transition:none!important}}
 </style>
 </head>
@@ -103,9 +107,23 @@ main{padding-block:8px 48px;display:grid;gap:8px}
       <div class="meta">
         <span id="status">Loading quest data…</span>
         <button class="linkbtn" id="refresh" type="button">Refresh data</button>
+        <button class="linkbtn" id="syncBtn" type="button" aria-expanded="false" aria-controls="sync">Copy / paste progress</button>
         <span id="resetWrap"><button class="linkbtn" id="reset" type="button">Reset ticks</button></span>
       </div>
     </div>
+    <section class="sync" id="sync" hidden>
+      <p>Move your ticks to another device: copy the code here, then paste it into this tracker on the other device. Loading a code replaces that device's ticks.</p>
+      <div class="row">
+        <button type="button" class="btn primary" id="copyCode">Copy my progress</button>
+        <span id="copyMsg" class="hint" role="status"></span>
+      </div>
+      <label class="hint" for="code">Progress code</label>
+      <textarea id="code" rows="3" spellcheck="false" autocomplete="off" placeholder="Paste a progress code from your other device here"></textarea>
+      <div class="row">
+        <button type="button" class="btn" id="loadCode">Load pasted code</button>
+        <span id="loadMsg" class="hint" role="status"></span>
+      </div>
+    </section>
   </header>
 
   <div class="bar" id="bar">
@@ -399,6 +417,41 @@ function askReset(){
     el("button", { type:"button", class:"btn", text:"Cancel", onclick: restore })));
 }
 $("reset").addEventListener("click", askReset);
+
+// progress codes: "TQ1." + base64 of the ticked objective ids
+const makeCode = () => "TQ1." + btoa(JSON.stringify([...done]));
+function readCode(text){
+  const s = text.trim().replace(/\s+/g, "");
+  if (!s.startsWith("TQ1.")) throw new Error("That doesn't look like a progress code. It should start with TQ1.");
+  const ids = JSON.parse(atob(s.slice(4)));
+  if (!Array.isArray(ids) || ids.some(x => typeof x !== "string")) throw new Error("That code is damaged. Copy it again from the other device.");
+  return ids;
+}
+$("syncBtn").addEventListener("click", () => {
+  const p = $("sync"); p.hidden = !p.hidden;
+  $("syncBtn").setAttribute("aria-expanded", String(!p.hidden));
+  $("copyMsg").textContent = ""; $("loadMsg").textContent = "";
+});
+$("copyCode").addEventListener("click", () => {
+  const code = makeCode(), box = $("code"), msg = $("copyMsg");
+  const fallback = () => { box.value = code; box.focus(); box.select(); msg.textContent = "Code is selected in the box below. Tap Copy."; };
+  try {
+    navigator.clipboard.writeText(code).then(
+      () => { msg.textContent = `Copied (${done.size} ticks). Paste it on your other device.`; },
+      fallback);
+  } catch { fallback(); }
+});
+$("loadCode").addEventListener("click", () => {
+  const msg = $("loadMsg");
+  try {
+    const ids = readCode($("code").value);
+    done = new Set(ids); store.set(DONE_KEY, ids);
+    $("code").value = ""; msg.textContent = `Loaded ${ids.length} ticks.`;
+    render();
+  } catch (e) {
+    msg.textContent = e instanceof SyntaxError || e.name === "InvalidCharacterError" ? "That code is damaged. Copy it again from the other device." : e.message;
+  }
+});
 
 syncControls();
 load(false);
