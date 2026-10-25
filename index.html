@@ -334,15 +334,35 @@ function syncControls(){
   $("viewQuests").setAttribute("aria-pressed", String(ui.view === "quests"));
 }
 
+// A plain GET with no custom headers avoids the CORS preflight that Safari was failing on.
+// If that fails, fall back to a POST without a JSON content type (also preflight-free).
+async function fetchTasks(){
+  const q = QUERY.replace(/\s+/g, " ");
+  const attempts = [
+    () => fetch(API + "?query=" + encodeURIComponent(q), { method:"GET", mode:"cors", credentials:"omit" }),
+    () => fetch(API, { method:"POST", mode:"cors", credentials:"omit", headers:{ "Content-Type":"text/plain;charset=UTF-8" }, body: JSON.stringify({ query: q }) }),
+    () => fetch(API, { method:"POST", mode:"cors", credentials:"omit", headers:{ "Content-Type":"application/json" }, body: JSON.stringify({ query: q }) })
+  ];
+  let lastErr;
+  for (const go of attempts) {
+    try {
+      const res = await go();
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      const json = await res.json();
+      if (json?.data?.tasks?.length) return json;
+      lastErr = new Error(json?.errors?.[0]?.message || "empty response");
+    } catch (e) { lastErr = e; }
+  }
+  throw lastErr;
+}
+
 async function load(force){
   const cached = store.get(CACHE_KEY, null);
   if (cached && !force) use(cached.tasks, cached.at, true);
   if (cached && !force && Date.now() - cached.at < 6 * 3600e3) return;
   $("status").textContent = cached ? "Checking for updates…" : "Loading quest data…";
   try {
-    const res = await fetch(API, { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify({ query: QUERY }) });
-    if (!res.ok) throw new Error("HTTP " + res.status);
-    const json = await res.json();
+    const json = await fetchTasks();
     const tasks = json?.data?.tasks;
     if (!Array.isArray(tasks) || !tasks.length) throw new Error(json?.errors?.[0]?.message || "empty response");
     const at = Date.now();
